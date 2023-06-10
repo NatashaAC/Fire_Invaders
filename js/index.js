@@ -58,7 +58,7 @@ class Projectile {
         this.position = position;
         this.velocity = velocity;
 
-        this.radius = 3;
+        this.radius = 5;
     }
 
     drawProjectile() {
@@ -71,6 +71,28 @@ class Projectile {
 
     updateProjectile() {
         this.drawProjectile();
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+    }
+}
+
+// Fire Projectile Class
+class FireProjectile {
+    constructor({position, velocity}) {
+        this.position = position;
+        this.velocity = velocity;
+
+        this.width = 3;
+        this.height = 10;
+    }
+
+    drawFireProjectile() {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    }
+
+    updateFireProjectile() {
+        this.drawFireProjectile();
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
     }
@@ -111,6 +133,19 @@ class Fire {
             this.position.x += velocity.x;
             this.position.y += velocity.y;
         }
+    }
+
+    shoot(fireProjectiles) {
+        fireProjectiles.push(new FireProjectile({
+             position: {
+                x: this.position.x + this.width / 2,
+                y: this.position.y + this.height
+            },
+            velocity: {
+                X: 0,
+                y: 5
+            }
+        }))
     }
 }
 
@@ -159,9 +194,11 @@ class Grid {
 
 // Creating Player Instance
 const player = new Player();
+
 // Creating Projectiles Array
 const projectiles = [];
 const grids = [];
+const fireProjectiles = [];
 
 const keys = {
     arrowleft: {
@@ -187,6 +224,21 @@ function animate() {
     // console.log('player!');
     player.updatePlayer();
 
+    fireProjectiles.forEach((fireProjectile, index) => {
+        if (fireProjectile.position.y + fireProjectile.height >= canvas.height) {
+            setTimeout(() => {
+                fireProjectiles.splice(index, 1)
+            }, 0)
+        } else {
+            fireProjectile.updateFireProjectile();
+        }
+
+        if(fireProjectile.position.y + fireProjectile.height >= player.position.y && fireProjectile.position.x + fireProjectile.width >= player.position.x && fireProjectile.position.x <= player.position.x + player.width) {
+            console.log('you lose')
+        }
+    })
+    console.log(fireProjectiles)
+
     // Creating Projectiles
     projectiles.forEach((projectile, index) => {
         if (projectile.position.y + projectile.radius <= 0) {
@@ -199,18 +251,42 @@ function animate() {
     })
 
     // Creating Grids
-    grids.forEach(grid => {
+    grids.forEach((grid, gridIndex) => {
         grid.updateGrid()
+        // Spawning Enemy Projectiles
+        if(frames % 100 === 0 && grid.flames.length > 0) {
+            grid.flames[Math.floor(Math.random() * grid.flames.length)].shoot(fireProjectiles);
+        }
         grid.flames.forEach((flame, index) => {
             flame.updateFire({velocity: grid.velocity});
 
             projectiles.forEach((projectile, j) => {
-                if (projectile.position.y - projectile.radius <= flame.position.y + flame.height && /* Video time 1:17:10 shoot invaders*/ ) {
+                if (projectile.position.y - projectile.radius <= flame.position.y + flame.height && projectile.position.x + projectile.radius >= flame.position.x && projectile.position.x - projectile.radius <= flame.position.x + flame.width && projectile.position.y + projectile.radius >= flame.position.y) {
 
                     setTimeout(() => {
-                        grid.flames.splice(index, 1)
-                        projectiles.splice(j, 1)
-                    })
+                        const flameFound = grid.flames.find(flame2 => {
+                            return flame2 === flame;
+                        })
+                        const projectileFound = projectiles.find( projectile2 => {
+                            return projectile2 === projectile;
+                        })
+
+                        // Remove flame and projectile
+                        if(flameFound && projectileFound) {
+                            grid.flames.splice(index, 1);
+                            projectiles.splice(j, 1);
+
+                            if(grid.flames.length > 0) {
+                                const firstFlame = grid.flames[0];
+                                const lastFlame = grid.flames[grid.flames.length - 1];
+
+                                grid.width = lastFlame.position.x - firstFlame.position.x + lastFlame.width;
+                                grid.position.x = firstFlame.position.x;
+                            }
+                        } else {
+                            grids.splice(gridIndex, 1);
+                        }
+                    }, 0)
                 }
             })
         });
@@ -228,12 +304,12 @@ function animate() {
         player.rotation = 0;
     }
 
-    // Spawning more flames after 1000 frames
+    // Spawning more flames after 1600 frames
     if (frames % randomInterval === 0) {
         grids.push(new Grid());
         randomInterval = Math.floor(Math.random() * 500 + 500)
         frames = 0
-        console.log(randomInterval)
+        // console.log(randomInterval)
     }
     frames++;
 }
